@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Searchbar from './Searchbar/Searchbar';
 import Loader from './Loader/Loader';
 import ImageGallery from './ImageGallery/ImageGallery';
@@ -18,60 +18,63 @@ const App = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isLastPage, setIsLastPage] = useState(false);
 
-  useEffect(() => {
-    if (!query) return;
-    fetchImages(true);
-  }, [query]);
-
-  const fetchImages = async (isNewQuery = false) => {
-    if (!query) {
-      Notiflix.Notify.info('Please enter a search query!', {
-        position: 'center-center',
-        timeout: 3000,
-        width: '450px',
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const { images: newImages, totalHits } = await pixabaySearch(
-        query,
-        isNewQuery ? 1 : page
-      );
-
-      if (!newImages.length && isNewQuery) {
-        Notiflix.Notify.info('No result found for your query', {
+  const fetchImages = useCallback(
+    async (isNewQuery = false) => {
+      if (!query) {
+        Notiflix.Notify.info('Please enter a search query!', {
           position: 'center-center',
           timeout: 3000,
           width: '450px',
         });
+        return;
       }
 
-      setImages(prevImages =>
-        isNewQuery ? newImages : [...prevImages, ...newImages]
-      );
-      setPage(prevPage => (isNewQuery ? 2 : prevPage + 1));
-      setIsLastPage(images.length + newImages.length >= totalHits);
+      setIsLoading(true);
 
-      if (!isNewQuery) {
-        window.scrollTo({
-          top: document.documentElement.scrollHeight,
-          behavior: 'smooth',
+      try {
+        const { images: newImages, totalHits } = await pixabaySearch(
+          query,
+          isNewQuery ? 1 : page
+        );
+
+        if (!newImages.length && isNewQuery) {
+          Notiflix.Notify.info('No result found for your query', {
+            position: 'center-center',
+            timeout: 3000,
+            width: '450px',
+          });
+        }
+
+        setImages(prevImages =>
+          isNewQuery ? newImages : [...prevImages, ...newImages]
+        );
+        setPage(prevPage => (isNewQuery ? 2 : prevPage + 1));
+        setIsLastPage(images.length + newImages.length >= totalHits);
+
+        if (!isNewQuery) {
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth',
+          });
+        }
+      } catch (error) {
+        Notiflix.Notify.failure(`Failed to fetch images: ${error.message}`, {
+          position: 'center-center',
+          timeout: 3000,
+          width: '450px',
         });
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      Notiflix.Notify.failure(`Failed to fetch images: ${error.message}`, {
-        position: 'center-center',
-        timeout: 3000,
-        width: '450px',
-      });
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [query, page, images.length]
+  );
+
+  useEffect(() => {
+    if (!query) return;
+    fetchImages(true);
+  }, [query, fetchImages]);
 
   const handleSubmit = newQuery => {
     if (query !== newQuery.trim()) {
